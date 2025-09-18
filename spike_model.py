@@ -171,22 +171,16 @@ class PredictError(nn.Module):
 
 
 class SelfCorrection(nn.Module):
-    def __init__(self, lr=0.01,):
+    def __init__(self, dim):
         super().__init__()
-        self.lr = lr
+        self.lr = nn.Parameter(torch.tensor(0.01))
+        self.error_to_grad = nn.Linear(1, dim)
 
     def forward(self, x, error):
-        total_error = error.sum()
-        grad_x = torch.autograd.grad(
-            outputs=total_error,
-            inputs=x,
-            retain_graph=True,
-            create_graph=True
-        )[0]
-        x_corrected = x - self.lr * grad_x
+        grad_approx = self.error_to_grad(error)
+        grad_approx = grad_approx.unsqueeze(1).expand_as(x)
+        x_corrected = x - self.lr * grad_approx
         return x_corrected
-
-
 
 
 class TransformerBlock(nn.Module):
@@ -197,10 +191,10 @@ class TransformerBlock(nn.Module):
         self.norm3 = nn.LayerNorm(dim)
 
         self.attention = LinearPerformerAttention(dim, heads, feature_dim, dropout, causal=causal)
-        self.spike_attention = SpikeAttention(dim,10, heads, feature_dim, dropout, causal=causal)
+        self.spike_attention = SpikeAttention(dim, 10, heads, feature_dim, dropout, causal=causal)
 
         self.error = PredictError(dim)
-        self.self_corr = SelfCorrection()
+        self.self_corr = SelfCorrection(dim)
 
         self.ffn = nn.Sequential(
             nn.Linear(dim, dim * 4),
@@ -237,14 +231,11 @@ class Transformer(nn.Module):
 
 
 if __name__ == "__main__":
-    vocab_size = 600
-    model = Transformer(dim=512, layers=20, heads=8, feature_dim=256, dropout=0.1, causal=True, vocab_size=vocab_size)
-    predictions = PredictError(512)
+    vocab_size = 50500
+    model = Transformer(dim=512, layers=5, heads=8, feature_dim=256, dropout=0.1, causal=True, vocab_size=vocab_size)
     data = torch.randn(3, 20, 512)
-    print(predictions(data).shape)
     spike = torch.randn(3, 1, 10)
     out = model(data, spike)
     print(out.shape)
     total_params = sum(p.numel() for p in model.parameters())
     print("Total parameters:", total_params)
-
