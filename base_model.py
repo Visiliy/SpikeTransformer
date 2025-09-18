@@ -109,7 +109,7 @@ class Transformer(nn.Module):
 
 if __name__ == "__main__":
     vocab_size = 600
-    model = Transformer(dim=512, layers=5, heads=8, feature_dim=256, dropout=0.1, causal=True, vocab_size=vocab_size)
+    model = Transformer(dim=512, layers=100, heads=8, feature_dim=256, dropout=0.1, causal=True, vocab_size=vocab_size)
 
     data = torch.randn(3, 20, 512)
     out = model(data)
